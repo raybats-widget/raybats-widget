@@ -56,4 +56,201 @@ function radecToVector(raDeg, decDeg){
     Math.sin(dec)
   ];
 }
-fu
+function equatorialToGalactic(vec){
+  const [x, y, z] = vec;
+  const m = [
+    [-0.0548755604, -0.8734370902, -0.4838350155],
+    [ 0.4941094279, -0.4448296299,  0.7469822445],
+    [-0.8676661490, -0.1980763734,  0.4559837762]
+  ];
+  return [
+    m[0][0]*x + m[0][1]*y + m[0][2]*z,
+    m[1][0]*x + m[1][1]*y + m[1][2]*z,
+    m[2][0]*x + m[2][1]*y + m[2][2]*z
+  ];
+}
+function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
+  const raZenith = lstDegrees(date, lonDeg);
+  const decZenith = latDeg;
+  const eqVec = radecToVector(raZenith, decZenith);
+  const galVec = equatorialToGalactic(eqVec);
+  const gz = Math.max(-1, Math.min(1, galVec[2]));
+  const bDeg = radToDeg(Math.asin(gz));
+  return Math.abs(bDeg);
+}
+
+async function fetchCloudCoverNow(lat, lon){
+  const base = "https://api.open-meteo.com/v1/forecast";
+  const url = `${base}?latitude=${lat}&longitude=${lon}&current=cloud_cover&timezone=auto`;
+  try{
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.current && typeof data.current.cloud_cover === "number"){
+      return data.current.cloud_cover;
+    }
+  }catch(e){
+    return null;
+  }
+  return null;
+}
+
+function scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct }){
+  const sunRating  = clamp01((THRESHOLDS.sunAltMax  + THRESHOLDS.sunTolerance  - sunAlt)   / THRESHOLDS.sunTolerance);
+  const moonRating = clamp01((THRESHOLDS.moonAltMax + THRESHOLDS.moonTolerance - moonAlt)  / THRESHOLDS.moonTolerance);
+  const planeRating= clamp01((THRESHOLDS.planeDistMax + THRESHOLDS.planeTolerance - planeDist) / THRESHOLDS.planeTolerance);
+
+  let score = 100 * (0.4*sunRating + 0.4*moonRating + 0.2*planeRating);
+
+  if (typeof cloudPct === "number"){
+    const cloudRating = clamp01(cloudPct / THRESHOLDS.cloudGoodAt);
+    score += THRESHOLDS.cloudBonusMax * cloudRating;
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  const go = (sunAlt <= THRESHOLDS.sunAltMax)
+    && (moonAlt <= THRESHOLDS.moonAltMax)
+    && (planeDist <= THRESHOLDS.planeDistMax);
+
+  return { score, go };
+}
+
+function barPosInverted(value, max, tol){
+  return 100 * clamp01((max + tol - value) / tol);
+}
+function barPosPlane(dist, distMax, tol){
+  return 100 * clamp01((distMax + tol - dist) / tol);
+}
+function barPosCloud(cloudPct){
+  return 100 * clamp01(cloudPct / THRESHOLDS.cloudGoodAt);
+}
+
+function formatLocalTime(date){
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
+}
+
+function findNextGoWindow({ lat, lon }){
+  const now = new Date();
+  const end = new Date(now.getTime() + 24*60*60*1000);
+  const stepMs = 5 * 60 * 1000;
+
+  let inGo = false;
+  let start = null;
+  let finish = null;
+
+  for (let t = now.getTime(); t <= end.getTime(); t += stepMs){
+    const d = new Date(t);
+
+    const sunAlt = radToDeg(SunCalc.getPosition(d, lat, lon).altitude);
+    const moonAlt = radToDeg(SunCalc.getMoonPosition(d, lat, lon).altitude);
+    const planeDist = galacticPlaneDistanceFromZenithDeg(d, lat, lon);
+
+    const go = (sunAlt <= THRESHOLDS.sunAltMax)
+      && (moonAlt <= THRESHOLDS.moonAltMax)
+      && (planeDist <= THRESHOLDS.planeDistMax);
+
+    if (go && !inGo){ inGo = true; start = new Date(t); }
+    if (!go && inGo){ inGo = false; finish = new Date(t); break; }
+  }
+
+  if (inGo && start && !finish) finish = end;
+  return { start, finish };
+}
+
+function labelThreeLevel(value, max, margin){
+  if (value <= max) return "Good";
+  if (value <= max + margin) return "Marginal";
+  return "High";
+}
+function labelPlane(dist){
+  if (dist <= THRESHOLDS.planeDistMax) return "Overhead";
+  if (dist <= THRESHOLDS.planeDistMax + 10) return "Near";
+  return "Off axis";
+}
+function labelCloud(pct){
+  if (typeof pct !== "number") return "Unknown";
+  if (pct >= 70) return "High";
+  if (pct >= 30) return "Medium";
+  return "Low";
+}
+
+async function update(lat, lon){
+  try{
+    if (typeof SunCalc === "undefined"){
+      setStatus("Error", false);
+      setText("summary", "Weather or astronomy library blocked; refresh or try another browser.");
+      return;
+    }
+
+    const now = new Date();
+    const sunAlt = radToDeg(SunCalc.getPosition(now, lat, lon).altitude);
+    const moonAlt = radToDeg(SunCalc.getMoonPosition(now, lat, lon).altitude);
+    const planeDist = galacticPlaneDistanceFromZenithDeg(now, lat, lon);
+    const cloudPct = await fetchCloudCoverNow(lat, lon);
+
+    const { score, go } = scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct });
+
+    setMarker("marker", score);
+    setStatus(go ? "GO" : "NO GO", go);
+
+    setMarker("sunMarker", barPosInverted(sunAlt, THRESHOLDS.sunAltMax, THRESHOLDS.sunTolerance));
+    setMarker("moonMarker", barPosInverted(moonAlt, THRESHOLDS.moonAltMax, THRESHOLDS.moonTolerance));
+    setMarker("planeMarker", barPosPlane(planeDist, THRESHOLDS.planeDistMax, THRESHOLDS.planeTolerance));
+    setMarker("cloudMarker", (typeof cloudPct === "number") ? barPosCloud(cloudPct) : 0);
+
+    const sunLabel = labelThreeLevel(sunAlt, THRESHOLDS.sunAltMax, 6);
+    const moonLabel = labelThreeLevel(moonAlt, THRESHOLDS.moonAltMax, 3);
+    const planeLabel = labelPlane(planeDist);
+    const cloudLabel = labelCloud(cloudPct);
+
+    setText("sunVal", sunLabel);
+    setText("moonVal", moonLabel);
+    setText("planeVal", planeLabel);
+    setText("cloudVal", cloudLabel);
+
+    const { start, finish } = findNextGoWindow({ lat, lon });
+    const nextTxt = (start && finish)
+      ? `Next good window; ${formatLocalTime(start)} to ${formatLocalTime(finish)}.`
+      : "No good window found in the next 24 hours.";
+
+    setText("summary", `Status; Sun ${sunLabel}; Moon ${moonLabel}; Milky Way ${planeLabel}; Cloud ${cloudLabel}. ${nextTxt}`);
+  }catch(e){
+    setStatus("Error", false);
+    setText("summary", "Script error; refresh.");
+  }
+}
+
+function startWithGeolocation(){
+  setStatus("Checking", null);
+  setText("summary", "Requesting location permission.");
+
+  if (!navigator.geolocation){
+    setText("summary", "Geolocation not available; using London.");
+    update(LONDON.lat, LONDON.lon);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => update(pos.coords.latitude, pos.coords.longitude),
+    () => {
+      setText("summary", "Location blocked; using London. Open full screen for exact location.");
+      update(LONDON.lat, LONDON.lon);
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const refreshBtn = el("refreshBtn");
+  if (refreshBtn) refreshBtn.addEventListener("click", () => startWithGeolocation());
+
+  const manualBtn = el("manualBtn");
+  if (manualBtn) manualBtn.addEventListener("click", () => update(LONDON.lat, LONDON.lon));
+
+  const openLink = el("openLink");
+  if (openLink) openLink.href = window.location.href;
+
+  startWithGeolocation();
+  setInterval(() => startWithGeolocation(), 60000);
+});
