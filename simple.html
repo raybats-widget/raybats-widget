@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RayBats Go or No Go</title>
+
+  <style>
+    :root{
+      --r:18px;
+      --shadow:0 10px 30px rgba(0,0,0,0.10);
+      --border:rgba(0,0,0,0.10);
+      --muted:rgba(0,0,0,0.65);
+    }
+    html,body{height:100%;margin:0;background:transparent;font-family:Arial,sans-serif;}
+    .card{width:100%;box-sizing:border-box;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;}
+    .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;}
+    .title{font-weight:800;font-size:18px;}
+    .status{font-weight:900;font-size:18px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);user-select:none;}
+    .bar{position:relative;height:18px;border-radius:999px;background:linear-gradient(90deg,#ff3b30 0%,#ffcc00 50%,#34c759 100%);overflow:hidden;border:1px solid var(--border);margin:10px 0 12px;}
+    .marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,0.25);transform:translate(-50%,-50%);left:0%;transition:left 0.9s ease;}
+    .summary{font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:12px;}
+    .buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+    button{appearance:none;border:1px solid rgba(0,0,0,0.15);background:#fff;border-radius:12px;padding:8px 10px;font-weight:700;cursor:pointer;}
+    button:active{transform:translateY(1px);}
+    .small{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.35;}
+    a{color:inherit;}
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+</head>
+
+<body>
+  <div class="card">
+    <div class="top">
+      <div class="title">RayBats Go or No Go</div>
+      <div class="status" id="status">Checking</div>
+    </div>
+
+    <div class="bar"><div class="marker" id="marker"></div></div>
+
+    <div class="summary" id="summary">Requesting location permission.</div>
+
+    <div class="buttons">
+      <button id="refreshBtn" type="button">Refresh</button>
+      <button id="manualBtn" type="button">Use London</button>
+    </div>
+
+    <div class="small">
+      Uses Sun position; Moon position; Milky Way geometry; plus local cloud cover.
+      <br/>
+      If location is blocked inside an embed; <a id="openLink" href="#" target="_blank" rel="noopener">open full screen</a>.
+    </div>
+  </div>
+
+  <script src="./simple.js"></script>
+</body>
+</html>
