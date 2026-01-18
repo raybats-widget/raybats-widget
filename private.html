@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RayBats Go / No Go</title>
+
+  <style>
+    :root{--card-radius:18px;--shadow:0 10px 30px rgba(0,0,0,0.10);--text:#111;--muted:rgba(0,0,0,0.65);--bg:#fff;--border:rgba(0,0,0,0.10);}
+    html,body{height:100%;margin:0;background:transparent;font-family:Arial,sans-serif;color:var(--text);}
+    .wrap{height:100%;display:flex;align-items:stretch;justify-content:stretch;}
+    .card{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:var(--card-radius);box-shadow:var(--shadow);padding:16px 16px 14px;}
+    .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;}
+    .title{font-weight:800;font-size:18px;letter-spacing:0.2px;}
+    .status{font-weight:900;font-size:18px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);user-select:none;}
+    .bar{position:relative;height:18px;border-radius:999px;background:linear-gradient(90deg,#ff3b30 0%,#ffcc00 50%,#34c759 100%);overflow:hidden;border:1px solid rgba(0,0,0,0.10);margin:10px 0;}
+    .marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,0.25);transform:translate(-50%,-50%);left:0%;transition:left 0.9s ease;}
+    .sub{font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.35;}
+    .grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px;}
+    .row{display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;border-top:1px solid rgba(0,0,0,0.07);padding-top:8px;}
+    .label{font-weight:700;font-size:13px;}
+    .miniBar{height:10px;border-radius:999px;background:linear-gradient(90deg,#ff3b30 0%,#ffcc00 50%,#34c759 100%);position:relative;overflow:hidden;border:1px solid rgba(0,0,0,0.10);}
+    .miniMarker{position:absolute;top:50%;width:10px;height:10px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,0.25);transform:translate(-50%,-50%);left:0%;transition:left 0.9s ease;}
+    .value{font-variant-numeric:tabular-nums;font-size:13px;color:rgba(0,0,0,0.80);white-space:nowrap;}
+    .buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+    button{appearance:none;border:1px solid rgba(0,0,0,0.15);background:#fff;border-radius:12px;padding:8px 10px;font-weight:700;cursor:pointer;}
+    button:active{transform:translateY(1px);}
+    .small{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.35;}
+    a{color:inherit;}
+  </style>
+
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <div class="title">RayBats Go / No Go</div>
+        <div class="status" id="status">Checking</div>
+      </div>
+
+      <div class="bar"><div class="marker" id="marker"></div></div>
+      <div class="sub" id="summary">Requesting location permission.</div>
+
+      <div class="grid">
+        <div class="row"><div class="label">Sun</div><div class="miniBar"><div class="miniMarker" id="sunMarker"></div></div><div class="value" id="sunVal">…</div></div>
+        <div class="row"><div class="label">Moon</div><div class="miniBar"><div class="miniMarker" id="moonMarker"></div></div><div class="value" id="moonVal">…</div></div>
+        <div class="row"><div class="label">Milky Way</div><div class="miniBar"><div class="miniMarker" id="planeMarker"></div></div><div class="value" id="planeVal">…</div></div>
+        <div class="row"><div class="label">Cloud</div><div class="miniBar"><div class="miniMarker" id="cloudMarker"></div></div><div class="value" id="cloudVal">…</div></div>
+      </div>
+
+      <div class="buttons">
+        <button id="refreshBtn" type="button">Refresh</button>
+        <button id="manualBtn" type="button">Use London</button>
+      </div>
+
+      <div class="small">
+        RayBats timing is calculated from Sun position; Moon position; Milky Way geometry; plus local cloud cover.
+        <br/>
+        If location is blocked inside an embed; <a id="openLink" href="#" target="_blank" rel="noopener">open the widget full screen</a>.
+      </div>
+    </div>
+  </div>
+
+  <script src="./raybats-widget.js"></script>
+</body>
+</html>
