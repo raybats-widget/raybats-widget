@@ -16,11 +16,7 @@
     }
     html,body{height:100%;margin:0;background:transparent;font-family:Arial,sans-serif;color:var(--text);}
 
-    .shell{
-      width:100%;
-      box-sizing:border-box;
-      padding:14px;
-    }
+    .shell{width:100%;box-sizing:border-box;padding:14px;}
 
     .card{
       position:relative;
@@ -44,14 +40,11 @@
       border-radius:calc(var(--radius) + 2px);
       background:linear-gradient(90deg, rgba(255,59,48,0.18), rgba(255,204,0,0.18), rgba(52,199,89,0.18));
       filter:blur(14px);
-      opacity:0.75;
+      opacity:0.70;
       pointer-events:none;
     }
 
-    .inner{
-      position:relative;
-      z-index:1;
-    }
+    .inner{position:relative;z-index:1;}
 
     .top{
       display:flex;
@@ -61,22 +54,10 @@
       margin-bottom:10px;
     }
 
-    .titleBlock{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-    }
+    .titleBlock{display:flex;flex-direction:column;gap:4px;}
 
-    .title{
-      font-weight:900;
-      font-size:18px;
-      letter-spacing:0.2px;
-    }
-
-    .subtitle{
-      font-size:12px;
-      color:var(--muted);
-    }
+    .title{font-weight:900;font-size:18px;letter-spacing:0.2px;}
+    .subtitle{font-size:12px;color:var(--muted);}
 
     .status{
       font-weight:900;
@@ -84,7 +65,7 @@
       padding:8px 12px;
       border-radius:999px;
       border:1px solid rgba(0,0,0,0.12);
-      background:rgba(255,255,255,0.70);
+      background:rgba(255,255,255,0.75);
       box-shadow:var(--shadow2);
       user-select:none;
       white-space:nowrap;
@@ -98,22 +79,6 @@
       border:1px solid rgba(0,0,0,0.10);
       overflow:hidden;
       margin:10px 0 10px;
-    }
-
-    .bar:after{
-      content:"";
-      position:absolute;
-      inset:0;
-      background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 35%, transparent 70%);
-      transform:translateX(-60%);
-      animation:shine 6s linear infinite;
-      pointer-events:none;
-      opacity:0.55;
-    }
-
-    @keyframes shine{
-      0%{transform:translateX(-60%);}
-      100%{transform:translateX(160%);}
     }
 
     .marker{
@@ -152,7 +117,7 @@
     button{
       appearance:none;
       border:1px solid rgba(0,0,0,0.14);
-      background:rgba(255,255,255,0.85);
+      background:rgba(255,255,255,0.88);
       border-radius:14px;
       padding:9px 12px;
       font-weight:800;
@@ -197,7 +162,7 @@
         </div>
 
         <div class="small">
-          If location is blocked inside an embed; <a id="openLink" href="#" target="_blank" rel="noopener">open full screen</a>.
+          If location is blocked; <a id="openLink" href="#" target="_blank" rel="noopener">open full screen</a>.
         </div>
       </div>
     </div>
