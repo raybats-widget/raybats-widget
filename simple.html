@@ -7,23 +7,168 @@
 
   <style>
     :root{
-      --r:18px;
-      --shadow:0 10px 30px rgba(0,0,0,0.10);
+      --radius:22px;
+      --shadow:0 18px 50px rgba(0,0,0,0.14);
+      --shadow2:0 2px 10px rgba(0,0,0,0.08);
       --border:rgba(0,0,0,0.10);
-      --muted:rgba(0,0,0,0.65);
+      --text:rgba(0,0,0,0.88);
+      --muted:rgba(0,0,0,0.62);
     }
-    html,body{height:100%;margin:0;background:transparent;font-family:Arial,sans-serif;}
-    .card{width:100%;box-sizing:border-box;background:#fff;border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:16px;}
-    .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px;}
-    .title{font-weight:800;font-size:18px;}
-    .status{font-weight:900;font-size:18px;padding:6px 12px;border-radius:999px;border:1px solid var(--border);user-select:none;}
-    .bar{position:relative;height:18px;border-radius:999px;background:linear-gradient(90deg,#ff3b30 0%,#ffcc00 50%,#34c759 100%);overflow:hidden;border:1px solid var(--border);margin:10px 0 12px;}
-    .marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid rgba(0,0,0,0.25);transform:translate(-50%,-50%);left:0%;transition:left 0.9s ease;}
-    .summary{font-size:13px;color:var(--muted);line-height:1.4;margin-bottom:12px;}
-    .buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
-    button{appearance:none;border:1px solid rgba(0,0,0,0.15);background:#fff;border-radius:12px;padding:8px 10px;font-weight:700;cursor:pointer;}
+    html,body{height:100%;margin:0;background:transparent;font-family:Arial,sans-serif;color:var(--text);}
+
+    .shell{
+      width:100%;
+      box-sizing:border-box;
+      padding:14px;
+    }
+
+    .card{
+      position:relative;
+      width:100%;
+      box-sizing:border-box;
+      border-radius:var(--radius);
+      background:
+        radial-gradient(900px 300px at 15% 0%, rgba(52,199,89,0.10), transparent 55%),
+        radial-gradient(800px 280px at 85% 0%, rgba(255,204,0,0.12), transparent 55%),
+        #fff;
+      border:1px solid var(--border);
+      box-shadow:var(--shadow);
+      padding:16px 16px 14px;
+      overflow:hidden;
+    }
+
+    .card:before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      border-radius:calc(var(--radius) + 2px);
+      background:linear-gradient(90deg, rgba(255,59,48,0.18), rgba(255,204,0,0.18), rgba(52,199,89,0.18));
+      filter:blur(14px);
+      opacity:0.75;
+      pointer-events:none;
+    }
+
+    .inner{
+      position:relative;
+      z-index:1;
+    }
+
+    .top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:10px;
+    }
+
+    .titleBlock{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+
+    .title{
+      font-weight:900;
+      font-size:18px;
+      letter-spacing:0.2px;
+    }
+
+    .subtitle{
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .status{
+      font-weight:900;
+      font-size:14px;
+      padding:8px 12px;
+      border-radius:999px;
+      border:1px solid rgba(0,0,0,0.12);
+      background:rgba(255,255,255,0.70);
+      box-shadow:var(--shadow2);
+      user-select:none;
+      white-space:nowrap;
+    }
+
+    .bar{
+      position:relative;
+      height:18px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ff3b30 0%,#ffcc00 50%,#34c759 100%);
+      border:1px solid rgba(0,0,0,0.10);
+      overflow:hidden;
+      margin:10px 0 10px;
+    }
+
+    .bar:after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.35) 35%, transparent 70%);
+      transform:translateX(-60%);
+      animation:shine 6s linear infinite;
+      pointer-events:none;
+      opacity:0.55;
+    }
+
+    @keyframes shine{
+      0%{transform:translateX(-60%);}
+      100%{transform:translateX(160%);}
+    }
+
+    .marker{
+      position:absolute;
+      top:50%;
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      background:#fff;
+      border:2px solid rgba(0,0,0,0.25);
+      transform:translate(-50%,-50%);
+      left:0%;
+      transition:left 0.9s ease;
+      box-shadow:0 6px 16px rgba(0,0,0,0.18);
+    }
+
+    .summary{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.45;
+      margin-bottom:10px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(0,0,0,0.08);
+      background:rgba(255,255,255,0.70);
+      box-shadow:var(--shadow2);
+    }
+
+    .buttons{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:6px;
+    }
+
+    button{
+      appearance:none;
+      border:1px solid rgba(0,0,0,0.14);
+      background:rgba(255,255,255,0.85);
+      border-radius:14px;
+      padding:9px 12px;
+      font-weight:800;
+      cursor:pointer;
+      box-shadow:var(--shadow2);
+    }
+
     button:active{transform:translateY(1px);}
-    .small{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.35;}
+
+    .small{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
     a{color:inherit;}
   </style>
 
@@ -31,25 +176,30 @@
 </head>
 
 <body>
-  <div class="card">
-    <div class="top">
-      <div class="title">RayBats Go or No Go</div>
-      <div class="status" id="status">Checking</div>
-    </div>
+  <div class="shell">
+    <div class="card">
+      <div class="inner">
+        <div class="top">
+          <div class="titleBlock">
+            <div class="title">RayBats Go or No Go</div>
+            <div class="subtitle">Live GO / NO GO based on your location.</div>
+          </div>
+          <div class="status" id="status">Checking</div>
+        </div>
 
-    <div class="bar"><div class="marker" id="marker"></div></div>
+        <div class="bar"><div class="marker" id="marker"></div></div>
 
-    <div class="summary" id="summary">Requesting location permission.</div>
+        <div class="summary" id="summary">Requesting location permission.</div>
 
-    <div class="buttons">
-      <button id="refreshBtn" type="button">Refresh</button>
-      <button id="manualBtn" type="button">Use London</button>
-    </div>
+        <div class="buttons">
+          <button id="refreshBtn" type="button">Refresh</button>
+          <button id="manualBtn" type="button">Use London</button>
+        </div>
 
-    <div class="small">
-      Uses Sun position; Moon position; Milky Way geometry; plus local cloud cover.
-      <br/>
-      If location is blocked inside an embed; <a id="openLink" href="#" target="_blank" rel="noopener">open full screen</a>.
+        <div class="small">
+          If location is blocked inside an embed; <a id="openLink" href="#" target="_blank" rel="noopener">open full screen</a>.
+        </div>
+      </div>
     </div>
   </div>
 
