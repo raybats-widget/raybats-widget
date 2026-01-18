@@ -17,6 +17,23 @@ function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 function radToDeg(r){ return r * 180 / Math.PI; }
 function degToRad(d){ return d * Math.PI / 180; }
 
+function el(id){ return document.getElementById(id); }
+function setText(id, txt){ const n = el(id); if (n) n.textContent = txt; }
+function setMarker(id, percent){
+  const n = el(id);
+  if (!n) return;
+  n.style.left = `${Math.max(0, Math.min(100, percent))}%`;
+}
+function setStatus(text, ok){
+  const s = el("status");
+  if (!s) return;
+  s.textContent = text;
+  if (ok === true) s.style.background = "rgba(52,199,89,0.14)";
+  if (ok === false) s.style.background = "rgba(255,59,48,0.14)";
+}
+
+function fmtDeg(x){ return `${x.toFixed(1)}°`; }
+
 function julianDate(date){ return date.getTime() / 86400000 + 2440587.5; }
 function daysSinceJ2000(date){ return julianDate(date) - 2451545.0; }
 
@@ -26,13 +43,11 @@ function gmstDegrees(date){
   gmst = ((gmst % 360) + 360) % 360;
   return gmst;
 }
-
 function lstDegrees(date, lonDeg){
   let lst = gmstDegrees(date) + lonDeg;
   lst = ((lst % 360) + 360) % 360;
   return lst;
 }
-
 function radecToVector(raDeg, decDeg){
   const ra = degToRad(raDeg);
   const dec = degToRad(decDeg);
@@ -41,7 +56,6 @@ function radecToVector(raDeg, decDeg){
   const z = Math.sin(dec);
   return [x, y, z];
 }
-
 function equatorialToGalactic(vec){
   const [x, y, z] = vec;
   const m = [
@@ -54,7 +68,6 @@ function equatorialToGalactic(vec){
   const gz = m[2][0]*x + m[2][1]*y + m[2][2]*z;
   return [gx, gy, gz];
 }
-
 function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
   const raZenith = lstDegrees(date, lonDeg);
   const decZenith = latDeg;
@@ -102,23 +115,18 @@ function scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct }){
   return { score, go };
 }
 
-function fmtDeg(x){ return `${x.toFixed(1)}°`; }
-
-function setMarker(id, percent){
-  const el = document.getElementById(id);
-  el.style.left = `${Math.max(0, Math.min(100, percent))}%`;
-}
-
 function barPosInverted(value, max, tol){
   return 100 * clamp01((max + tol - value) / tol);
 }
-
 function barPosPlane(dist, distMax, tol){
   return 100 * clamp01((distMax + tol - dist) / tol);
 }
-
 function barPosCloud(cloudPct){
   return 100 * clamp01(cloudPct / THRESHOLDS.cloudGoodAt);
+}
+
+function formatLocalTime(date){
+  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
 function findNextGoWindow({ lat, lon }){
@@ -132,6 +140,7 @@ function findNextGoWindow({ lat, lon }){
 
   for (let t = now.getTime(); t <= end.getTime(); t += stepMs){
     const d = new Date(t);
+
     const sunAlt = radToDeg(SunCalc.getPosition(d, lat, lon).altitude);
     const moonAlt = radToDeg(SunCalc.getMoonPosition(d, lat, lon).altitude);
     const planeDist = galacticPlaneDistanceFromZenithDeg(d, lat, lon);
@@ -141,4 +150,95 @@ function findNextGoWindow({ lat, lon }){
       && (planeDist <= THRESHOLDS.planeDistMax);
 
     if (go && !inGo){ inGo = true; start = new Date(t); }
-    if (!go && inGo){ in
+    if (!go && inGo){ inGo = false; finish = new Date(t); break; }
+  }
+
+  if (inGo && start && !finish) finish = end;
+  return { start, finish };
+}
+
+async function update(lat, lon){
+  try{
+    if (typeof SunCalc === "undefined"){
+      setStatus("Error", false);
+      setText("summary", "SunCalc did not load; check ad blocker or tracking protection; then refresh.");
+      return;
+    }
+
+    const now = new Date();
+
+    const sunAlt = radToDeg(SunCalc.getPosition(now, lat, lon).altitude);
+    const moonAlt = radToDeg(SunCalc.getMoonPosition(now, lat, lon).altitude);
+    const planeDist = galacticPlaneDistanceFromZenithDeg(now, lat, lon);
+    const cloudPct = await fetchCloudCoverNow(lat, lon);
+
+    const { score, go } = scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct });
+
+    setMarker("marker", score);
+    setStatus(go ? "GO" : "NO GO", go);
+
+    setMarker("sunMarker", barPosInverted(sunAlt, THRESHOLDS.sunAltMax, THRESHOLDS.sunTolerance));
+    setMarker("moonMarker", barPosInverted(moonAlt, THRESHOLDS.moonAltMax, THRESHOLDS.moonTolerance));
+    setMarker("planeMarker", barPosPlane(planeDist, THRESHOLDS.planeDistMax, THRESHOLDS.planeTolerance));
+    setMarker("cloudMarker", (typeof cloudPct === "number") ? barPosCloud(cloudPct) : 0);
+
+    setText("sunVal", fmtDeg(sunAlt));
+    setText("moonVal", fmtDeg(moonAlt));
+    setText("planeVal", `|b| ${fmtDeg(planeDist)}`);
+    setText("cloudVal", (typeof cloudPct === "number") ? `${cloudPct.toFixed(0)}%` : "n/a");
+
+    const { start, finish } = findNextGoWindow({ lat, lon });
+
+    const nextTxt = (start && finish)
+      ? `Next good window; ${formatLocalTime(start)} to ${formatLocalTime(finish)}.`
+      : "No GO window found in the next 24 hours using these thresholds.";
+
+    const summary = [
+      `Location; ${lat.toFixed(4)}, ${lon.toFixed(4)}.`,
+      `Sun; ${fmtDeg(sunAlt)} (≤ ${THRESHOLDS.sunAltMax}°).`,
+      `Moon; ${fmtDeg(moonAlt)} (≤ ${THRESHOLDS.moonAltMax}°).`,
+      `Plane overhead; |b| ${fmtDeg(planeDist)} (≤ ${THRESHOLDS.planeDistMax}°).`,
+      (typeof cloudPct === "number") ? `Cloud; ${cloudPct.toFixed(0)}%.` : "Cloud; n/a.",
+      nextTxt
+    ].join(" ");
+
+    setText("summary", summary);
+  }catch(e){
+    setStatus("Error", false);
+    setText("summary", `Script error; ${e && e.message ? e.message : "unknown"}.`);
+  }
+}
+
+function startWithGeolocation(){
+  setStatus("Checking", null);
+  setText("summary", "Requesting location permission.");
+
+  if (!navigator.geolocation){
+    setText("summary", "Geolocation not available; using London.");
+    update(LONDON.lat, LONDON.lon);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => update(pos.coords.latitude, pos.coords.longitude),
+    () => {
+      setText("summary", "Location blocked; using London. Allow location in browser settings for exact location.");
+      update(LONDON.lat, LONDON.lon);
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  const refreshBtn = el("refreshBtn");
+  if (refreshBtn) refreshBtn.addEventListener("click", () => startWithGeolocation());
+
+  const manualBtn = el("manualBtn");
+  if (manualBtn) manualBtn.addEventListener("click", () => update(LONDON.lat, LONDON.lon));
+
+  const openLink = el("openLink");
+  if (openLink) openLink.href = window.location.href;
+
+  startWithGeolocation();
+  setInterval(() => startWithGeolocation(), 60000);
+});
