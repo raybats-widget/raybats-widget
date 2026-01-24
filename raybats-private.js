@@ -14,11 +14,6 @@ const THRESHOLDS = {
 
 const LONDON = { lat: 51.5074, lon: -0.1278 };
 
-// Moon in centre between Milky Way pillars rule
-const MOON_PILLAR_CENTRE_TOL_DEG = 15;
-const MOON_PILLAR_BONUS = 8;
-const MOON_PILLAR_PENALTY = 8;
-
 function clamp01(x){ return Math.max(0, Math.min(1, x)); }
 function radToDeg(r){ return r * 180 / Math.PI; }
 function degToRad(d){ return d * Math.PI / 180; }
@@ -62,6 +57,7 @@ function radecToVector(raDeg, decDeg){
     Math.sin(dec)
   ];
 }
+
 function equatorialToGalactic(vec){
   const [x, y, z] = vec;
   const m = [
@@ -76,21 +72,6 @@ function equatorialToGalactic(vec){
   ];
 }
 
-// Inverse rotation (transpose)
-function galacticToEquatorial(vec){
-  const [gx, gy, gz] = vec;
-  const mt = [
-    [-0.0548755604,  0.4941094279, -0.8676661490],
-    [-0.8734370902, -0.4448296299, -0.1980763734],
-    [-0.4838350155,  0.7469822445,  0.4559837762]
-  ];
-  return [
-    mt[0][0]*gx + mt[0][1]*gy + mt[0][2]*gz,
-    mt[1][0]*gx + mt[1][1]*gy + mt[1][2]*gz,
-    mt[2][0]*gx + mt[2][1]*gy + mt[2][2]*gz
-  ];
-}
-
 function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
   const raZenith = lstDegrees(date, lonDeg);
   const decZenith = latDeg;
@@ -99,111 +80,6 @@ function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
   const gz = Math.max(-1, Math.min(1, galVec[2]));
   const bDeg = radToDeg(Math.asin(gz));
   return Math.abs(bDeg);
-}
-
-// RA/Dec to local alt/az (degrees), az from north, eastward
-function raDecToAltAzDeg(raDeg, decDeg, date, latDeg, lonDeg){
-  const lat = degToRad(latDeg);
-  const ra = degToRad(raDeg);
-  const dec = degToRad(decDeg);
-  const lst = degToRad(lstDegrees(date, lonDeg));
-  const H = (lst - ra + 2*Math.PI) % (2*Math.PI);
-
-  const xEast  = Math.cos(dec) * Math.sin(H);
-  const yNorth = Math.sin(dec) * Math.cos(lat) - Math.cos(dec) * Math.cos(H) * Math.sin(lat);
-  const zUp    = Math.sin(dec) * Math.sin(lat) + Math.cos(dec) * Math.cos(H) * Math.cos(lat);
-
-  const alt = Math.asin(Math.max(-1, Math.min(1, zUp)));
-  let az = Math.atan2(xEast, yNorth);
-  az = (az + 2*Math.PI) % (2*Math.PI);
-
-  return { altDeg: radToDeg(alt), azDeg: radToDeg(az) };
-}
-
-function galacticLBToRaDecDeg(lDeg, bDeg){
-  const l = degToRad(lDeg);
-  const b = degToRad(bDeg);
-
-  const gx = Math.cos(b) * Math.cos(l);
-  const gy = Math.cos(b) * Math.sin(l);
-  const gz = Math.sin(b);
-
-  const [ex, ey, ez] = galacticToEquatorial([gx, gy, gz]);
-
-  let ra = Math.atan2(ey, ex);
-  ra = (ra + 2*Math.PI) % (2*Math.PI);
-  const dec = Math.asin(Math.max(-1, Math.min(1, ez)));
-
-  return { raDeg: radToDeg(ra), decDeg: radToDeg(dec) };
-}
-
-function angularDistanceDeg(a, b){
-  let d = ((a - b) % 360 + 360) % 360;
-  if (d > 180) d = 360 - d;
-  return d;
-}
-function angleLerpDeg(a, b, t){
-  let d = ((b - a) % 360 + 360) % 360;
-  if (d > 180) d -= 360;
-  return (a + d * t + 360) % 360;
-}
-function midAzimuthDeg(a1, a2){
-  let d = ((a2 - a1) % 360 + 360) % 360;
-  if (d > 180) d -= 360;
-  return (a1 + d / 2 + 360) % 360;
-}
-
-// Find the two galactic plane horizon crossings (pillars)
-function findGalacticPlaneHorizonCrossingsAz(date, latDeg, lonDeg){
-  const points = [];
-  const step = 5;
-
-  for (let l = 0; l <= 360; l += step){
-    const { raDeg, decDeg } = galacticLBToRaDecDeg(l % 360, 0);
-    const { altDeg, azDeg } = raDecToAltAzDeg(raDeg, decDeg, date, latDeg, lonDeg);
-    points.push({ altDeg, azDeg });
-  }
-
-  const crossings = [];
-  for (let i = 0; i < points.length - 1; i++){
-    const a1 = points[i].altDeg;
-    const a2 = points[i+1].altDeg;
-
-    if ((a1 === 0) || (a1 > 0 && a2 < 0) || (a1 < 0 && a2 > 0)){
-      const denom = (a1 - a2);
-      if (Math.abs(denom) < 1e-9) continue;
-
-      const t = a1 / (a1 - a2);
-      const azCross = angleLerpDeg(points[i].azDeg, points[i+1].azDeg, t);
-      crossings.push(azCross);
-    }
-  }
-
-  crossings.sort((x, y) => x - y);
-
-  const uniq = [];
-  for (const az of crossings){
-    if (uniq.length === 0){ uniq.push(az); continue; }
-    if (angularDistanceDeg(az, uniq[uniq.length - 1]) > 6) uniq.push(az);
-  }
-
-  if (uniq.length < 2) return [];
-
-  // pick the pair with largest separation
-  let best = [uniq[0], uniq[1]];
-  let bestSep = angularDistanceDeg(uniq[0], uniq[1]);
-
-  for (let i = 0; i < uniq.length; i++){
-    for (let j = i + 1; j < uniq.length; j++){
-      const sep = angularDistanceDeg(uniq[i], uniq[j]);
-      if (sep > bestSep){
-        bestSep = sep;
-        best = [uniq[i], uniq[j]];
-      }
-    }
-  }
-
-  return best;
 }
 
 async function fetchCloudCoverNow(lat, lon){
@@ -285,66 +161,21 @@ function findNextGoWindow({ lat, lon }){
   return { start, finish };
 }
 
-function labelThreeLevel(value, max, margin){
-  if (value <= max) return "Good";
-  if (value <= max + margin) return "Marginal";
-  return "High";
-}
-function labelPlane(dist){
-  if (dist <= THRESHOLDS.planeDistMax) return "Overhead";
-  if (dist <= THRESHOLDS.planeDistMax + 10) return "Near";
-  return "Off axis";
-}
-function labelCloud(pct){
-  if (typeof pct !== "number") return "Unknown";
-  if (pct >= 70) return "High";
-  if (pct >= 30) return "Medium";
-  return "Low";
-}
-function labelMoonPillars(distToCentre){
-  if (distToCentre === null) return "Unknown";
-  if (distToCentre <= MOON_PILLAR_CENTRE_TOL_DEG) return "Centred";
-  if (distToCentre <= MOON_PILLAR_CENTRE_TOL_DEG * 2) return "Near";
-  return "Offset";
-}
-
 async function update(lat, lon){
   try{
     if (typeof SunCalc === "undefined"){
       setStatus("Error", false);
-      setText("summary", "Weather or astronomy library blocked; refresh or try another browser.");
+      setText("summary", "SunCalc did not load; refresh.");
       return;
     }
 
     const now = new Date();
     const sunAlt = radToDeg(SunCalc.getPosition(now, lat, lon).altitude);
-    const moonPos = SunCalc.getMoonPosition(now, lat, lon);
-    const moonAlt = radToDeg(moonPos.altitude);
-
-    // Convert SunCalc azimuth to degrees from north, eastward
-    // SunCalc azimuth is from south, positive west
-    let moonAzDeg = (radToDeg(moonPos.azimuth) + 180) % 360;
-    moonAzDeg = (moonAzDeg + 360) % 360;
-
+    const moonAlt = radToDeg(SunCalc.getMoonPosition(now, lat, lon).altitude);
     const planeDist = galacticPlaneDistanceFromZenithDeg(now, lat, lon);
     const cloudPct = await fetchCloudCoverNow(lat, lon);
 
-    let { score, go } = scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct });
-
-    // Moon between pillars rule
-    const pillars = findGalacticPlaneHorizonCrossingsAz(now, lat, lon);
-    let distToCentre = null;
-
-    if (pillars.length === 2){
-      const centreAz = midAzimuthDeg(pillars[0], pillars[1]);
-      distToCentre = angularDistanceDeg(moonAzDeg, centreAz);
-
-      if (distToCentre <= MOON_PILLAR_CENTRE_TOL_DEG){
-        score = Math.min(100, score + MOON_PILLAR_BONUS);
-      } else if (distToCentre >= MOON_PILLAR_CENTRE_TOL_DEG * 2){
-        score = Math.max(0, score - MOON_PILLAR_PENALTY);
-      }
-    }
+    const { score, go } = scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct });
 
     setMarker("marker", score);
     setStatus(go ? "GO" : "NO GO", go);
@@ -354,23 +185,18 @@ async function update(lat, lon){
     setMarker("planeMarker", barPosPlane(planeDist, THRESHOLDS.planeDistMax, THRESHOLDS.planeTolerance));
     setMarker("cloudMarker", (typeof cloudPct === "number") ? barPosCloud(cloudPct) : 0);
 
-    const sunLabel = labelThreeLevel(sunAlt, THRESHOLDS.sunAltMax, 6);
-    const moonLabel = labelThreeLevel(moonAlt, THRESHOLDS.moonAltMax, 3);
-    const planeLabel = labelPlane(planeDist);
-    const cloudLabel = labelCloud(cloudPct);
-    const pillarLabel = labelMoonPillars(distToCentre);
-
-    setText("sunVal", sunLabel);
-    setText("moonVal", moonLabel);
-    setText("planeVal", planeLabel);
-    setText("cloudVal", cloudLabel);
+    setText("sunVal", `${sunAlt.toFixed(1)}°`);
+    setText("moonVal", `${moonAlt.toFixed(1)}°`);
+    setText("planeVal", `|b| ${planeDist.toFixed(1)}°`);
+    setText("cloudVal", (typeof cloudPct === "number") ? `${cloudPct.toFixed(0)}%` : "Unknown");
 
     const { start, finish } = findNextGoWindow({ lat, lon });
     const nextTxt = (start && finish)
       ? `Next good window; ${formatLocalTime(start)} to ${formatLocalTime(finish)}.`
       : "No good window found in the next 24 hours.";
 
-    setText("summary", `Status; Sun ${sunLabel}; Moon ${moonLabel}; Milky Way ${planeLabel}; Moon band ${pillarLabel}; Cloud ${cloudLabel}. ${nextTxt}`);
+    const summary = `Next good window; ${nextTxt.replace("Next good window; ", "")}`;
+    setText("summary", summary);
   }catch(e){
     setStatus("Error", false);
     setText("summary", "Script error; refresh.");
