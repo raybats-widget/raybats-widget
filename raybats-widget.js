@@ -3,7 +3,7 @@
 const THRESHOLDS = {
   sunAltMax: 19.5,
   moonAltMax: 4.0,
-  planeDistMax: 30.0,      // degrees; |galactic latitude of zenith|
+  planeDistMax: 30.0,
   sunTolerance: 10.0,
   moonTolerance: 6.0,
   planeTolerance: 20.0,
@@ -55,7 +55,6 @@ function equatorialToGalactic(vec){
   return [gx, gy, gz];
 }
 
-// Galactic plane overhead metric; distance to plane = |b_zenith|
 function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
   const raZenith = lstDegrees(date, lonDeg);
   const decZenith = latDeg;
@@ -218,7 +217,6 @@ async function startWithGeolocation(){
 
 document.getElementById("refreshBtn").addEventListener("click", () => startWithGeolocation());
 document.getElementById("manualBtn").addEventListener("click", () => update(LONDON.lat, LONDON.lon));
-
 document.getElementById("openLink").href = window.location.href;
 
 startWithGeolocation();
