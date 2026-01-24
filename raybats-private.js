@@ -47,7 +47,6 @@ function lstDegrees(date, lonDeg){
   lst = ((lst % 360) + 360) % 360;
   return lst;
 }
-
 function radecToVector(raDeg, decDeg){
   const ra = degToRad(raDeg);
   const dec = degToRad(decDeg);
@@ -57,7 +56,6 @@ function radecToVector(raDeg, decDeg){
     Math.sin(dec)
   ];
 }
-
 function equatorialToGalactic(vec){
   const [x, y, z] = vec;
   const m = [
@@ -71,7 +69,6 @@ function equatorialToGalactic(vec){
     m[2][0]*x + m[2][1]*y + m[2][2]*z
   ];
 }
-
 function galacticPlaneDistanceFromZenithDeg(date, latDeg, lonDeg){
   const raZenith = lstDegrees(date, lonDeg);
   const decZenith = latDeg;
@@ -99,8 +96,8 @@ async function fetchCloudCoverNow(lat, lon){
 }
 
 function scoreRaybats({ sunAlt, moonAlt, planeDist, cloudPct }){
-  const sunRating  = clamp01((THRESHOLDS.sunAltMax  + THRESHOLDS.sunTolerance  - sunAlt)  / THRESHOLDS.sunTolerance);
-  const moonRating = clamp01((THRESHOLDS.moonAltMax + THRESHOLDS.moonTolerance - moonAlt) / THRESHOLDS.moonTolerance);
+  const sunRating  = clamp01((THRESHOLDS.sunAltMax  + THRESHOLDS.sunTolerance  - sunAlt)   / THRESHOLDS.sunTolerance);
+  const moonRating = clamp01((THRESHOLDS.moonAltMax + THRESHOLDS.moonTolerance - moonAlt)  / THRESHOLDS.moonTolerance);
   const planeRating= clamp01((THRESHOLDS.planeDistMax + THRESHOLDS.planeTolerance - planeDist) / THRESHOLDS.planeTolerance);
 
   let score = 100 * (0.4*sunRating + 0.4*moonRating + 0.2*planeRating);
@@ -161,11 +158,28 @@ function findNextGoWindow({ lat, lon }){
   return { start, finish };
 }
 
+function labelThreeLevel(value, max, margin){
+  if (value <= max) return "Good";
+  if (value <= max + margin) return "Marginal";
+  return "High";
+}
+function labelPlane(dist){
+  if (dist <= THRESHOLDS.planeDistMax) return "Overhead";
+  if (dist <= THRESHOLDS.planeDistMax + 10) return "Near";
+  return "Off axis";
+}
+function labelCloud(pct){
+  if (typeof pct !== "number") return "Unknown";
+  if (pct >= 70) return "High";
+  if (pct >= 30) return "Medium";
+  return "Low";
+}
+
 async function update(lat, lon){
   try{
     if (typeof SunCalc === "undefined"){
       setStatus("Error", false);
-      setText("summary", "SunCalc did not load; refresh.");
+      setText("summary", "Weather or astronomy library blocked; refresh or try another browser.");
       return;
     }
 
@@ -185,18 +199,22 @@ async function update(lat, lon){
     setMarker("planeMarker", barPosPlane(planeDist, THRESHOLDS.planeDistMax, THRESHOLDS.planeTolerance));
     setMarker("cloudMarker", (typeof cloudPct === "number") ? barPosCloud(cloudPct) : 0);
 
-    setText("sunVal", `${sunAlt.toFixed(1)}°`);
-    setText("moonVal", `${moonAlt.toFixed(1)}°`);
-    setText("planeVal", `|b| ${planeDist.toFixed(1)}°`);
-    setText("cloudVal", (typeof cloudPct === "number") ? `${cloudPct.toFixed(0)}%` : "Unknown");
+    const sunLabel = labelThreeLevel(sunAlt, THRESHOLDS.sunAltMax, 6);
+    const moonLabel = labelThreeLevel(moonAlt, THRESHOLDS.moonAltMax, 3);
+    const planeLabel = labelPlane(planeDist);
+    const cloudLabel = labelCloud(cloudPct);
+
+    setText("sunVal", sunLabel);
+    setText("moonVal", moonLabel);
+    setText("planeVal", planeLabel);
+    setText("cloudVal", cloudLabel);
 
     const { start, finish } = findNextGoWindow({ lat, lon });
     const nextTxt = (start && finish)
       ? `Next good window; ${formatLocalTime(start)} to ${formatLocalTime(finish)}.`
       : "No good window found in the next 24 hours.";
 
-    const summary = `Next good window; ${nextTxt.replace("Next good window; ", "")}`;
-    setText("summary", summary);
+    setText("summary", `Status; Sun ${sunLabel}; Moon ${moonLabel}; Milky Way ${planeLabel}; Cloud ${cloudLabel}. ${nextTxt}`);
   }catch(e){
     setStatus("Error", false);
     setText("summary", "Script error; refresh.");
